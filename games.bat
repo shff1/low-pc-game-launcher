@@ -150,45 +150,37 @@ set /p del_choice="%lime%Введите номер игры, которую ну
 if "%del_choice%"=="0" goto menu
 if not defined del_choice goto menu
 
-set "deleted_name="
-set "rcurrent=0"
+:: Создаем временный файл прямо в этой же папке
+set "TEMP_DB=Временный_список.txt"
+if exist "%TEMP_DB%" del "%TEMP_DB%"
 
+set "rcurrent=0"
+set "deleted_name="
 for /f "usebackq delims=" %%A in ("%DATABASE%") do (
     set /a rcurrent+=1
     if "!rcurrent!"=="%del_choice%" (
         for /f "tokens=1 delims=|" %%B in ("%%A") do set "deleted_name=%%B"
+    ) else (
+        echo %%A>> "%TEMP_DB%"
     )
 )
 
-if not defined deleted_name (
+if defined deleted_name (
+    :: Если удалили последнюю игру и файл не создался, просто обнуляем базу
+    if not exist "%TEMP_DB%" type null > "%DATABASE%"
+    
+    :: Если временный файл создался, заменяем им нашу базу Игры.txt
+    if exist "%TEMP_DB%" (
+        move /y "%TEMP_DB%" "%DATABASE%" > nul
+    )
+    echo.
+    echo %lime%Игра "!deleted_name!" успешно удалена из меню консоли!%reset%
+) else (
+    if exist "%TEMP_DB%" del "%TEMP_DB%"
     echo.
     echo %lime%Неверный номер! Ничего не удалено.%reset%
-    timeout /t 2 > nul
-    goto menu
 )
 
-:: Если удаляем ПОСЛЕДНЮЮ или ЕДИНСТВЕННУЮ игру, просто очищаем файл
-if "%rcount%"=="1" (
-    type null > "%DATABASE%"
-    goto remove_success
-)
-
-:: Если игр больше, перезаписываем через временный файл
-type null > "games_tmp.txt"
-set "rcurrent=0"
-for /f "usebackq delims=" %%A in ("%DATABASE%") do (
-    set /a rcurrent+=1
-    if not "!rcurrent!"=="%del_choice%" (
-        echo %%A>> "games_tmp.txt"
-    )
-)
-
-copy /y "games_tmp.txt" "%DATABASE%" > nul
-del "games_tmp.txt" > nul
-
-:remove_success
-echo.
-echo %lime%Игра "!deleted_name!" успешно удалена из меню консоли!%reset%
 timeout /t 2 > nul
 goto menu
 
