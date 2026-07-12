@@ -10,18 +10,13 @@ for /f %%A in ('echo prompt $E^|cmd') do set "esc=%%A"
 set "lime=%esc%[38;2;166;226;46m"
 set "reset=%esc%[0m"
 
-set "DATABASE=games.txt"
+set "DATABASE=Игры.txt"
 
 :: Если базы данных нет, создаем чистый пустой файл
 if not exist "%DATABASE%" type null > "%DATABASE%"
 
 :: Полностью скрываем рабочий стол и панель задач
 taskkill /f /im explorer.exe > nul 2>&1
-taskkill /f /im Steam.exe 2>nul
-taskkill /f /im Epicgameslauncher.exe 2>nul
-taskkill /f /im Discord.exe 2>nul
-taskkill /f /im Telegram.exe 2>nul
-taskkill /f /im WhatsApp.exe 2>nul
 
 :menu
 cls
@@ -130,7 +125,7 @@ goto menu
 :remove_game
 cls
 echo %lime%───────────────────────────────────────────────────
-echo              УДАЛЕНИЕ ИГРЫ ИЗ МЕНЮ
+echo               УДАЛЕНИЕ ИГРЫ ИЗ МЕНЮ
 echo ───────────────────────────────────────────────────
 echo.
 set "rcount=0"
@@ -150,7 +145,8 @@ set /p del_choice="%lime%Введите номер игры, которую ну
 if "%del_choice%"=="0" goto menu
 if not defined del_choice goto menu
 
-set "TEMP_DB=%temp%\games_tmp.txt"
+:: Создаем временный файл прямо в папке со скриптом, чтобы избежать конфликтов путей
+set "TEMP_DB=games_tmp.txt"
 if exist "%TEMP_DB%" del "%TEMP_DB%"
 
 set "rcurrent=0"
@@ -165,6 +161,8 @@ for /f "usebackq delims=" %%A in ("%DATABASE%") do (
 )
 
 if defined deleted_name (
+    :: Если в списке больше не осталось игр, move создаст пустой файл, проверяем это
+    if not exist "%TEMP_DB%" type null > "%TEMP_DB%"
     move /y "%TEMP_DB%" "%DATABASE%" > nul
     echo.
     echo %lime%Игра "!deleted_name!" успешно удалена из меню консоли!%reset%
