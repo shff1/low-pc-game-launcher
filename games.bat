@@ -145,33 +145,40 @@ set /p del_choice="%lime%Введите номер игры, которую ну
 if "%del_choice%"=="0" goto menu
 if not defined del_choice goto menu
 
-:: Создаем временный файл прямо в папке со скриптом, чтобы избежать конфликтов путей
-set "TEMP_DB=games_tmp.txt"
-if exist "%TEMP_DB%" del "%TEMP_DB%"
-
-set "rcurrent=0"
 set "deleted_name="
+set "rcurrent=0"
+
+:: Сначала находим имя удаляемой игры
 for /f "usebackq delims=" %%A in ("%DATABASE%") do (
     set /a rcurrent+=1
     if "!rcurrent!"=="%del_choice%" (
         for /f "tokens=1 delims=|" %%B in ("%%A") do set "deleted_name=%%B"
-    ) else (
-        echo %%A>> "%TEMP_DB%"
     )
 )
 
-if defined deleted_name (
-    :: Если в списке больше не осталось игр, move создаст пустой файл, проверяем это
-    if not exist "%TEMP_DB%" type null > "%TEMP_DB%"
-    move /y "%TEMP_DB%" "%DATABASE%" > nul
-    echo.
-    echo %lime%Игра "!deleted_name!" успешно удалена из меню консоли!%reset%
-) else (
-    if exist "%TEMP_DB%" del "%TEMP_DB%"
+if not defined deleted_name (
     echo.
     echo %lime%Неверный номер! Ничего не удалено.%reset%
+    timeout /t 2 > nul
+    goto menu
 )
 
+:: Полностью очищаем старую базу и перезаписываем её БЕЗ удаленной игры
+type null > "games_tmp.txt"
+set "rcurrent=0"
+for /f "usebackq delims=" %%A in ("%DATABASE%") do (
+    set /a rcurrent+=1
+    if not "!rcurrent!"=="%del_choice%" (
+        echo %%A>> "games_tmp.txt"
+    )
+)
+
+:: Копируем обратно и удаляем временный файл
+copy /y "games_tmp.txt" "%DATABASE%" > nul
+del "games_tmp.txt" > nul
+
+echo.
+echo %lime%Игра "!deleted_name!" успешно удалена из меню консоли!%reset%
 timeout /t 2 > nul
 goto menu
 
