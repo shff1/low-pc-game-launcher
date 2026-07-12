@@ -15,7 +15,7 @@ set "DATABASE=Игры.txt"
 :: Если базы данных нет, создаем чистый пустой файл
 if not exist "%DATABASE%" type null > "%DATABASE%"
 
-:: Полностью скрываем рабочий стол и панель задач
+:: Полностью скрываем рабочий стол и панель задач + глушим лаунчеры
 taskkill /f /im explorer.exe > nul 2>&1
 taskkill /f /im Steam.exe 2>nul
 taskkill /f /im epicgameslauncher.exe 2>nul
@@ -26,7 +26,7 @@ taskkill /f /im WhatsApp.exe 2>nul
 :menu
 cls
 echo %lime%───────────────────────────────────────────────────
-echo    ТЕРМИНАЛ АКТИВИРОВАН! Выберите игру:
+echo     ТЕРМИНАЛ АКТИВИРОВАН! Выберите игру:
 echo ───────────────────────────────────────────────────
 echo.
 
@@ -35,14 +35,14 @@ set "count=0"
 for /f "usebackq delims=" %%A in ("%DATABASE%") do (
     set /a count+=1
     for /f "tokens=1 delims=|" %%B in ("%%A") do (
-        echo    [!count!] %%B
+        echo     [!count!] %%B
     )
 )
 
 echo.
-echo    [A] Добавить новую игру
-echo    [D] Удалить игру из меню
-echo    [0] ВЫХОД (Вернуть рабочий стол ПК)
+echo     [A] Добавить новую игру
+echo     [D] Удалить игру из меню
+echo     [0] ВЫХОД (Вернуть рабочий стол ПК)
 echo ───────────────────────────────────────────────────
 
 set "choice="
@@ -92,7 +92,7 @@ goto menu
 :add_game
 cls
 echo %lime%───────────────────────────────────────────────────
-echo              ДОБАВЛЕНИЕ НОВОЙ ИГРЫ
+echo                ДОБАВЛЕНИЕ НОВОЙ ИГРЫ
 echo ───────────────────────────────────────────────────
 echo.
 set "new_name="
@@ -102,10 +102,15 @@ echo.
 echo %lime%2. Сейчас откроется окно... Выберите главный (.exe) - файл игры.
 echo Пожалуйста, подождите...%reset%
 
-:: Окно выбора файла стартует с системного диска. Пользователь сам выберет нужную папку.
-set "ps_fallback=Add-Type -AssemblyName System.Windows.Forms; $d=New-Object System.Windows.Forms.OpenFileDialog; $d.Filter='Игры (*.exe)^|*.exe'; $d.InitialDirectory='%SystemDrive%\'; if($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK){$d.FileName}"
+:: Изолированный вызов окна, чтобы консоль не сжималась и не ломала шрифты
+if exist "selected_path.tmp" del "selected_path.tmp"
+start /wait "" /min powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; $d=New-Object System.Windows.Forms.OpenFileDialog; $d.Filter='Игры (*.exe)|*.exe'; $d.InitialDirectory='%SystemDrive%\'; if($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK){$d.FileName | Out-File -FilePath 'selected_path.tmp' -Encoding utf8}"
+
 set "new_path="
-for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "%ps_fallback%"`) do set "new_path=%%I"
+if exist "selected_path.tmp" (
+    for /f "usebackq delims=" %%I in ("selected_path.tmp") do set "new_path=%%I"
+    del "selected_path.tmp"
+)
 
 if not defined new_path (
     echo.
@@ -130,18 +135,18 @@ goto menu
 :remove_game
 cls
 echo %lime%───────────────────────────────────────────────────
-echo               УДАЛЕНИЕ ИГРЫ ИЗ МЕНЮ
+echo                УДАЛЕНИЕ ИГРЫ ИЗ МЕНЮ
 echo ───────────────────────────────────────────────────
 echo.
 set "rcount=0"
 for /f "usebackq delims=" %%A in ("%DATABASE%") do (
     set /a rcount+=1
     for /f "tokens=1 delims=|" %%B in ("%%A") do (
-        echo    [!rcount!] %%B
+        echo     [!rcount!] %%B
     )
 )
 echo.
-echo    [0] Назад в главное меню
+echo     [0] Назад в главное меню
 echo ───────────────────────────────────────────────────
 echo.
 set "del_choice="
@@ -167,16 +172,16 @@ for /f "usebackq delims=" %%A in ("%DATABASE%") do (
 
 if defined deleted_name (
     :: Если удалили последнюю игру и файл не создался, просто обнуляем базу
-    if not exist "%TEMP_DB%" type null > "%DATABASE%"
+    if not exist "%TEMP_DB%" type null > "%DATABASE%" 2>nul
     
-    :: Если временный файл создался, заменяем им нашу базу Игры.txt
+    :: Если временный файл создался, заменяем им нашу базу Игры.txt, глуша системные ошибки
     if exist "%TEMP_DB%" (
-        move /y "%TEMP_DB%" "%DATABASE%" > nul
+        move /y "%TEMP_DB%" "%DATABASE%" > nul 2>&1
     )
     echo.
     echo %lime%Игра "!deleted_name!" успешно удалена из меню консоли!%reset%
 ) else (
-    if exist "%TEMP_DB%" del "%TEMP_DB%"
+    if exist "%TEMP_DB%" del "%TEMP_DB%" > nul 2>&1
     echo.
     echo %lime%Неверный номер! Ничего не удалено.%reset%
 )
