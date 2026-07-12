@@ -85,7 +85,7 @@
 
 Для улучшения плавности игрового процесса можно использовать вместе с батником следующие программы:
 
-### 1. Настройка [ISLC](https://www.wagnardsoft.com/forums/viewtopic.php?t=1322) (Рекомендуется для 16 ГБ ОЗУ)
+### 1. Настройка [ISLC]([https://www.wagnardsoft.com/forums/viewtopic.php?t=1322](https://www.wagnardsoft.com/intelligent-standby-list-cleaner-islc)) (Рекомендуется для 16 ГБ ОЗУ)
 Программа *Intelligent Standby List Cleaner* очищает кэш памяти и снижает задержки, улучшая взаимодействие железа.
 
 **Параметры для настройки:**
