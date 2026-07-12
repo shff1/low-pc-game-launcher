@@ -153,7 +153,6 @@ if not defined del_choice goto menu
 set "deleted_name="
 set "rcurrent=0"
 
-:: Сначала находим имя удаляемой игры
 for /f "usebackq delims=" %%A in ("%DATABASE%") do (
     set /a rcurrent+=1
     if "!rcurrent!"=="%del_choice%" (
@@ -168,7 +167,13 @@ if not defined deleted_name (
     goto menu
 )
 
-:: Полностью очищаем старую базу и перезаписываем её БЕЗ удаленной игры
+:: Если удаляем ПОСЛЕДНЮЮ или ЕДИНСТВЕННУЮ игру, просто очищаем файл
+if "%rcount%"=="1" (
+    type null > "%DATABASE%"
+    goto remove_success
+)
+
+:: Если игр больше, перезаписываем через временный файл
 type null > "games_tmp.txt"
 set "rcurrent=0"
 for /f "usebackq delims=" %%A in ("%DATABASE%") do (
@@ -178,10 +183,10 @@ for /f "usebackq delims=" %%A in ("%DATABASE%") do (
     )
 )
 
-:: Копируем обратно и удаляем временный файл
 copy /y "games_tmp.txt" "%DATABASE%" > nul
 del "games_tmp.txt" > nul
 
+:remove_success
 echo.
 echo %lime%Игра "!deleted_name!" успешно удалена из меню консоли!%reset%
 timeout /t 2 > nul
