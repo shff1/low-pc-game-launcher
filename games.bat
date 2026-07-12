@@ -17,6 +17,11 @@ if not exist "%DATABASE%" type null > "%DATABASE%"
 
 :: Полностью скрываем рабочий стол и панель задач
 taskkill /f /im explorer.exe > nul 2>&1
+taskkill /f /im Steam.exe 2>nul
+taskkill /f /im Epicgameslauncher.exe 2>nul
+taskkill /f /im Discord.exe 2>nul
+taskkill /f /im Telegram.exe 2>nul
+taskkill /f /im WhatsApp.exe 2>nul
 
 :menu
 cls
