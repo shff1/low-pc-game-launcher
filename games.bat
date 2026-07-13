@@ -99,27 +99,32 @@ set "new_name="
 set /p new_name="%lime%1. Введите красивое НАЗВАНИЕ игры для меню: %reset%"
 if not defined new_name goto menu
 echo.
-echo %lime%2. Сейчас откроется окно... Выберите главный (.exe) - файл игры.
-echo Пожалуйста, подождите...%reset%
+echo %lime%2. Выберите главный (.exe) файл игры...%reset%
 
-:: Изолированный вызов окна, чтобы консоль не сжималась и не ломала шрифты
-if exist "selected_path.tmp" del "selected_path.tmp"
-start /wait "" /min powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; $d=New-Object System.Windows.Forms.OpenFileDialog; $d.Filter='Игры (*.exe)|*.exe'; $d.InitialDirectory='%SystemDrive%\'; if($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK){$d.FileName | Out-File -FilePath 'selected_path.tmp' -Encoding utf8}"
+:: Используем временный файл в папке %TEMP%, чтобы избежать проблем с правами
+set "temp_file=%temp%\game_path.tmp"
+if exist "%temp_file%" del "%temp_file%"
 
-set "new_path="
-if exist "selected_path.tmp" (
-    for /f "usebackq delims=" %%I in ("selected_path.tmp") do set "new_path=%%I"
-    del "selected_path.tmp"
-)
+:: Запуск окна выбора
+powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; $d=New-Object System.Windows.Forms.OpenFileDialog; $d.Filter='Игры (*.exe)|*.exe'; if($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK){ [System.IO.File]::WriteAllText('%temp_file%', $d.FileName) }"
 
-if not defined new_path (
-    echo.
-    echo %lime%Файл не был выбран! Добавление отменено.%reset%
+:: ВОЗВРАЩАЕМ кодировку, чтобы шрифты не ломались после PowerShell
+chcp 65001 > nul
+
+if not exist "%temp_file%" (
+    echo %lime%Файл не выбран!%reset%
     timeout /t 2 > nul
     goto menu
 )
 
-for %%F in ("%new_path%") do (
+:: Читаем путь
+set /p raw_path=<"%temp_file%"
+del "%temp_file%"
+
+:: ФИКС: Принудительное получение абсолютного пути (убирает всякий мусор из начала)
+for %%I in ("%raw_path%") do set "full_path=%%~fI"
+
+for %%F in ("%full_path%") do (
     set "folder=%%~dpF"
     set "exe=%%~nxF"
 )
@@ -128,7 +133,7 @@ if "%folder:~-1%"=="\" set "folder=%folder:~0,-1%"
 echo %new_name%^|%folder%^|%exe%>> "%DATABASE%"
 
 echo.
-echo %lime%Отлично! Игра "%new_name%" успешно добавлена в список.%reset%
+echo %lime%Отлично! Игра "%new_name%" успешно добавлена.%reset%
 timeout /t 2 > nul
 goto menu
 
