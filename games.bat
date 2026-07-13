@@ -92,7 +92,7 @@ goto menu
 :add_game
 cls
 echo %lime%───────────────────────────────────────────────────
-echo                ДОБАВЛЕНИЕ НОВОЙ ИГРЫ
+echo                 ДОБАВЛЕНИЕ НОВОЙ ИГРЫ
 echo ───────────────────────────────────────────────────
 echo.
 set "new_name="
@@ -101,14 +101,14 @@ if not defined new_name goto menu
 echo.
 echo %lime%2. Выберите главный (.exe) файл игры...%reset%
 
-:: Используем временный файл в папке %TEMP%, чтобы избежать проблем с правами
 set "temp_file=%temp%\game_path.tmp"
 if exist "%temp_file%" del "%temp_file%"
 
-:: Запуск окна выбора
-powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; $d=New-Object System.Windows.Forms.OpenFileDialog; $d.Filter='Игры (*.exe)|*.exe'; if($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK){ [System.IO.File]::WriteAllText('%temp_file%', $d.FileName) }"
+:: ФИКС: Запускаем PowerShell через команду 'start', открывая его в отдельном процессе. 
+:: Наш батник при этом ждет (/wait) окончания выбора. Шрифты и окно батника гарантированно не пострадают!
+start /wait "" powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; $d=New-Object System.Windows.Forms.OpenFileDialog; $d.Filter='Игры (*.exe)|*.exe'; if($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK){ [System.IO.File]::WriteAllText('%temp_file%', $d.FileName) }"
 
-:: ВОЗВРАЩАЕМ кодировку, чтобы шрифты не ломались после PowerShell
+:: Возвращаем кодировку нашего батника в чувство
 chcp 65001 > nul
 
 if not exist "%temp_file%" (
@@ -121,7 +121,7 @@ if not exist "%temp_file%" (
 set /p raw_path=<"%temp_file%"
 del "%temp_file%"
 
-:: ФИКС: Принудительное получение абсолютного пути (убирает всякий мусор из начала)
+:: Принудительное получение абсолютного пути
 for %%I in ("%raw_path%") do set "full_path=%%~fI"
 
 for %%F in ("%full_path%") do (
