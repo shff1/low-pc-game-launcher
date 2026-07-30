@@ -6,7 +6,7 @@ setlocal enabledelayedexpansion
 :: Настройка цветов
 set "esc="
 for /f %%A in ('echo prompt $E^|cmd') do set "esc=%%A"
-set "lime=%esc%[38;2;166;226;46m"
+set "pink=%esc%[38;2;255;0;153m"
 set "gray=%esc%[38;2;150;150;150m"
 set "blue=%esc%[38;2;0;170;255m"
 set "reset=%esc%[0m"
@@ -14,9 +14,13 @@ set "reset=%esc%[0m"
 set "SCRIPT_DIR=%~dp0"
 set "DATABASE=%SCRIPT_DIR%Игры.txt"
 set "STATS_DB=%SCRIPT_DIR%Статистика.txt"
+set "BACKUP_DB=%SCRIPT_DIR%Резерв_Времени.txt"
+set "LAST_DB=%SCRIPT_DIR%Последняя_Игра.txt"
 
 if not exist "%DATABASE%" type nul > "%DATABASE%"
 if not exist "%STATS_DB%" type nul > "%STATS_DB%"
+if not exist "%BACKUP_DB%" type nul > "%BACKUP_DB%"
+if not exist "%LAST_DB%" type nul > "%LAST_DB%"
 
 :: Скрываем рабочий стол при старте и глушим фоновый софт
 taskkill /f /im explorer.exe > nul 2>&1
@@ -37,11 +41,14 @@ set "total_seconds=0"
 for /f "usebackq tokens=1,2 delims=|" %%S in ("%STATS_DB%") do set /a total_seconds+=%%T
 call :format_time %total_seconds% total_ftime
 
+set "last_game=—"
+for /f "usebackq tokens=1 delims=|" %%L in ("%LAST_DB%") do set "last_game=%%L"
+
 :: --- ВЕРХНЯЯ ПАНЕЛЬ ---
-echo  %gray%[ ИГРОВАЯ КОНСОЛЬ ]   [ ИГР: %total_games% ]   [ ВСЕГО ИГРАНО: %total_ftime% ]%reset%
+echo  %gray%[ ИГРОВАЯ КОНСОЛЬ ]   [ ИГР: %total_games% ]   [ ВСЕГО ИГРАНО: %total_ftime% ]   [ ПОСЛЕДНЯЯ: !last_game! ]%reset%
 echo  %blue%________________________________________________________________________________%reset%
 echo.
-echo  %lime%  БИБЛИОТЕКА ИГР:%reset%
+echo  %pink%  БИБЛИОТЕКА ИГР:%reset%
 echo.
 
 :: --- ВЕРТИКАЛЬНЫЙ СПИСОК ИГР ---
@@ -62,9 +69,9 @@ for /f "usebackq delims=" %%A in ("%DATABASE%") do (
     :: Вывод широкой панели игры
     set "n=!gname!                                   "
     set "t=!ftime!           "
-    echo   %lime%┌──────────────────────────────────────────────────────────┐%reset%
-    echo   %lime%│ [!count!] !n:~0,30! %gray%Время: !t:~0,10!%reset%    %lime%│%reset%
-    echo   %lime%└──────────────────────────────────────────────────────────┘%reset%
+    echo   %pink%╔══════════════════════════════════════════════════════════╗%reset%
+    echo   %pink%║%reset% [!count!] !n:~0,30! %gray%Время: !t:~0,10!%reset%    %pink%║%reset%
+    echo   %pink%╚══════════════════════════════════════════════════════════╝%reset%
 )
 
 if %count%==0 (
@@ -73,7 +80,7 @@ if %count%==0 (
 
 echo.
 echo  %blue%________________________________________________________________________________%reset%
-echo    %gray%[A] Добавить игру    [D] Удалить игру    [0] Выход в Windows%reset%
+echo    %gray%[A] Добавить игру    [D] Удалить игру    [E] Редактировать игру    [0] Выход в Windows%reset%
 echo.
 
 set "choice="
@@ -82,6 +89,7 @@ set /p choice="%blue%  Выберите номер игры или действ�
 if "%choice%"=="0" goto exit
 if /i "%choice%"=="A" goto add_game
 if /i "%choice%"=="D" goto remove_game
+if /i "%choice%"=="E" goto edit_game
 
 :: Проверка выбора игры
 set "valid=0"
@@ -99,14 +107,14 @@ for /f "usebackq delims=" %%A in ("%DATABASE%") do (
 )
 
 if "%valid%"=="0" (
-    echo %lime% Неверный ввод! Пожалуйста, выберите существующий пункт.%reset%
+    echo %pink% Неверный ввод! Пожалуйста, выберите существующий пункт.%reset%
     timeout /t 2 > nul
     goto menu
 )
 
 if "%valid%"=="1" (
     if not exist "!game_folder!\!game_exe!" (
-        echo %lime% Файл игры не найден!%reset%
+        echo %pink% Файл игры не найден!%reset%
         timeout /t 2 > nul
         goto menu
     )
@@ -131,6 +139,7 @@ if "%valid%"=="1" (
 
     call :calc_elapsed "!start_time!" "!end_time!" elapsed_seconds
     call :update_stats "!game_name!" !elapsed_seconds!
+    echo !game_name!^|%date% %time%> "%LAST_DB%"
     goto menu
 )
 goto menu
@@ -145,7 +154,7 @@ if exist "%temp_file%" del "%temp_file%"
 start /wait "" powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; $d=New-Object System.Windows.Forms.OpenFileDialog; $d.Filter='Игры (*.exe)|*.exe'; if($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK){ [System.IO.File]::WriteAllText('%temp_file%', $d.FileName) }"
 chcp 65001 > nul
 if not exist "%temp_file%" (
-    echo %lime% Файл не выбран!%reset%
+    echo %pink% Файл не выбран!%reset%
     timeout /t 2 > nul
     goto menu
 )
@@ -156,7 +165,111 @@ for %%F in ("%full_path%") do (set "folder=%%~dpF" & set "exe=%%~nxF")
 if "%folder:~-1%"=="\" set "folder=%folder:~0,-1%"
 echo %new_name%^|%folder%^|%exe%>> "%DATABASE%"
 echo.
-echo %lime% Игра "%new_name%" успешно добавлена.%reset%
+echo %pink% Игра "%new_name%" успешно добавлена.%reset%
+timeout /t 2 > nul
+goto menu
+
+:edit_game
+cls
+echo %blue%  РЕДАКТИРОВАНИЕ ИГРЫ%reset%
+set "ecount=0"
+for /f "usebackq delims=" %%A in ("%DATABASE%") do (
+    set /a ecount+=1
+    for /f "tokens=1 delims=|" %%B in ("%%A") do echo    [!ecount!] %%B
+)
+echo.
+echo    [0] Назад в главное меню
+set "edit_choice="
+set /p edit_choice="  Номер игры для редактирования: "
+if "%edit_choice%"=="0" goto menu
+if not defined edit_choice goto menu
+
+set "edit_valid=0"
+set "ecurrent=0"
+for /f "usebackq delims=" %%A in ("%DATABASE%") do (
+    set /a ecurrent+=1
+    if "!ecurrent!"=="%edit_choice%" (
+        set "edit_valid=1"
+        for /f "tokens=1,2,3 delims=|" %%B in ("%%A") do (
+            set "old_name=%%B"
+            set "old_folder=%%C"
+            set "old_exe=%%D"
+        )
+    )
+)
+
+if "%edit_valid%"=="0" (
+    echo.
+    echo %pink% Неверный номер!%reset%
+    timeout /t 2 > nul
+    goto menu
+)
+
+cls
+echo %blue%  РЕДАКТИРОВАНИЕ: !old_name!%reset%
+echo.
+echo    [1] Изменить название
+echo    [2] Изменить путь к игре (exe)
+echo    [0] Отмена
+set "edit_action="
+set /p edit_action="  Выбор: "
+
+if "%edit_action%"=="0" goto menu
+
+set "new_name=!old_name!"
+set "new_folder=!old_folder!"
+set "new_exe=!old_exe!"
+
+if "%edit_action%"=="1" (
+    set "in_name="
+    set /p "in_name=  Новое название: "
+    if defined in_name set "new_name=!in_name!"
+)
+
+if "%edit_action%"=="2" (
+    set "temp_file=%temp%\game_path.tmp"
+    if exist "!temp_file!" del "!temp_file!"
+    start /wait "" powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; $d=New-Object System.Windows.Forms.OpenFileDialog; $d.Filter='Игры (*.exe)|*.exe'; if($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK){ [System.IO.File]::WriteAllText('!temp_file!', $d.FileName) }"
+    chcp 65001 > nul
+    if exist "!temp_file!" (
+        set /p raw_path=<"!temp_file!"
+        del "!temp_file!"
+        for %%I in ("!raw_path!") do set "full_path=%%~fI"
+        for %%F in ("!full_path!") do (set "new_folder=%%~dpF" & set "new_exe=%%~nxF")
+        if "!new_folder:~-1!"=="\" set "new_folder=!new_folder:~0,-1!"
+    )
+)
+
+:: Перезаписываем базу с обновлённой строкой
+set "TEMP_DB=%temp%\temp_edit_db.txt"
+if exist "!TEMP_DB!" del "!TEMP_DB!"
+set "wcurrent=0"
+for /f "usebackq delims=" %%A in ("%DATABASE%") do (
+    set /a wcurrent+=1
+    if "!wcurrent!"=="%edit_choice%" (
+        echo !new_name!^|!new_folder!^|!new_exe!>> "!TEMP_DB!"
+    ) else (
+        echo %%A>> "!TEMP_DB!"
+    )
+)
+move /y "!TEMP_DB!" "%DATABASE%" > nul
+
+:: Если название изменилось — переносим статистику на новый ключ
+if not "!new_name!"=="!old_name!" (
+    set "TEMP_STATS=%temp%\temp_edit_stats.txt"
+    if exist "!TEMP_STATS!" del "!TEMP_STATS!"
+    for /f "usebackq tokens=1,2 delims=|" %%S in ("%STATS_DB%") do (
+        if "%%S"=="!old_name!" (
+            echo !new_name!^|%%T>> "!TEMP_STATS!"
+        ) else (
+            echo %%S^|%%T>> "!TEMP_STATS!"
+        )
+    )
+    if exist "!TEMP_STATS!" move /y "!TEMP_STATS!" "%STATS_DB%" > nul
+)
+
+echo.
+echo %pink% Игра успешно обновлена.%reset%
 timeout /t 2 > nul
 goto menu
 
@@ -170,45 +283,75 @@ for /f "usebackq delims=" %%A in ("%DATABASE%") do (
 )
 echo.
 echo    [0] Назад в главное меню
+set "del_choice="
 set /p del_choice="  Номер для удаления: "
 if "%del_choice%"=="0" goto menu
 if not defined del_choice goto menu
 
-set "TEMP_DB=%temp%\temp_db.txt"
-if exist "%TEMP_DB%" del "%TEMP_DB%"
 set "rcurrent=0"
+set "del_valid=0"
 set "deleted_name="
 for /f "usebackq delims=" %%A in ("%DATABASE%") do (
     set /a rcurrent+=1
     if "!rcurrent!"=="%del_choice%" (
+        set "del_valid=1"
         for /f "tokens=1 delims=|" %%B in ("%%A") do set "deleted_name=%%B"
-    ) else (
-        echo %%A>> "%TEMP_DB%"
     )
 )
 
-if defined deleted_name (
-    if not exist "%TEMP_DB%" type nul > "%DATABASE%"
-    if exist "%TEMP_DB%" move /y "%TEMP_DB%" "%DATABASE%" > nul
-
-    :: Чистим статистику удалённой игры
-    set "TEMP_STATS=%temp%\temp_stats.txt"
-    if exist "!TEMP_STATS!" del "!TEMP_STATS!"
-    for /f "usebackq tokens=1,2 delims=|" %%S in ("%STATS_DB%") do (
-        if not "%%S"=="!deleted_name!" echo %%S^|%%T>> "!TEMP_STATS!"
-    )
-    if exist "!TEMP_STATS!" (
-        move /y "!TEMP_STATS!" "%STATS_DB%" > nul
-    ) else (
-        type nul > "%STATS_DB%"
-    )
+if "%del_valid%"=="0" (
     echo.
-    echo %lime% Игра "!deleted_name!" успешно удалена.%reset%
+    echo %pink% Неверный номер! Ничего не удалено.%reset%
+    timeout /t 2 > nul
+    goto menu
+)
+
+:: Ищем наигранное время для подтверждения и резервной копии
+set "del_seconds=0"
+for /f "usebackq tokens=1,2 delims=|" %%S in ("%STATS_DB%") do (
+    if "%%S"=="!deleted_name!" set "del_seconds=%%T"
+)
+call :format_time !del_seconds! del_ftime
+
+echo.
+echo %pink% Удалить "!deleted_name!" (наиграно: !del_ftime!)?%reset%
+echo %gray% Время будет сохранено в "Резерв_Времени.txt" перед удалением.%reset%
+set "confirm="
+set /p confirm="  Вы уверены? (Y/N): "
+if /i not "!confirm!"=="Y" (
+    echo.
+    echo %gray% Удаление отменено.%reset%
+    timeout /t 2 > nul
+    goto menu
+)
+
+:: Сохраняем время в резервный файл на случай неудачного удаления
+echo !deleted_name!^|!del_seconds!^|%date% %time%>> "%BACKUP_DB%"
+
+set "TEMP_DB=%temp%\temp_db.txt"
+if exist "%TEMP_DB%" del "%TEMP_DB%"
+set "rcurrent=0"
+for /f "usebackq delims=" %%A in ("%DATABASE%") do (
+    set /a rcurrent+=1
+    if not "!rcurrent!"=="%del_choice%" echo %%A>> "%TEMP_DB%"
+)
+if not exist "%TEMP_DB%" type nul > "%DATABASE%"
+if exist "%TEMP_DB%" move /y "%TEMP_DB%" "%DATABASE%" > nul
+
+:: Чистим статистику удалённой игры
+set "TEMP_STATS=%temp%\temp_stats.txt"
+if exist "!TEMP_STATS!" del "!TEMP_STATS!"
+for /f "usebackq tokens=1,2 delims=|" %%S in ("%STATS_DB%") do (
+    if not "%%S"=="!deleted_name!" echo %%S^|%%T>> "!TEMP_STATS!"
+)
+if exist "!TEMP_STATS!" (
+    move /y "!TEMP_STATS!" "%STATS_DB%" > nul
 ) else (
-    if exist "%TEMP_DB%" del "%TEMP_DB%"
-    echo.
-    echo %lime% Неверный номер! Ничего не удалено.%reset%
+    type nul > "%STATS_DB%"
 )
+
+echo.
+echo %pink% Игра "!deleted_name!" успешно удалена.%reset%
 timeout /t 2 > nul
 goto menu
 
